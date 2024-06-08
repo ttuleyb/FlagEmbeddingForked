@@ -7,6 +7,7 @@ from transformers import (
     HfArgumentParser,
     set_seed,
 )
+import wandb
 
 from .arguments import ModelArguments, DataArguments
 from .data import TrainDatasetForCE, EvalDatasetForCE, GroupCollator
@@ -16,6 +17,9 @@ from .trainer import CETrainer
 logger = logging.getLogger(__name__)
 
 def main():
+    # Initialize wandb
+    wandb.init(project="FlagEmbedding", entity="YOUR_WANDB_ENTITY")
+
     parser = HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     model_args: ModelArguments
@@ -34,7 +38,7 @@ def main():
 
     # Setup logging
     logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
+        format="%(asctime)s - %(levellevel - %(name)s -   %(message)s",
         datefmt="%m/%d/%Y %H:%M:%S",
         level=logging.INFO if training_args.local_rank in [-1, 0] else logging.WARN,
     )

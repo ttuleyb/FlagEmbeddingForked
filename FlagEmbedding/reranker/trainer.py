@@ -5,6 +5,7 @@ from typing import Optional, Dict
 import torch
 from transformers.trainer import Trainer
 from transformers.trainer_utils import PredictionOutput
+import wandb
 
 from .modeling import CrossEncoder
 
@@ -30,6 +31,7 @@ class CETrainer(Trainer):
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
         output = self.prediction_loop(eval_dataloader, description="Evaluation")
         self.log(output.metrics)
+        self._log_eval_results(output.metrics)  # Ensure this is called to log evaluation metrics
         return output.metrics
 
     def prediction_loop(self, dataloader, description, prediction_loss_only=None):
@@ -41,3 +43,13 @@ class CETrainer(Trainer):
             eval_losses.append(loss.item())
         eval_loss = sum(eval_losses) / len(eval_losses)
         return PredictionOutput(predictions=None, label_ids=None, metrics={"eval_loss": eval_loss})
+
+    def _log_eval_results(self, metrics):
+        """
+        Log evaluation results to both the console and wandb.
+        """
+        logger.info("***** Evaluation results *****")
+        for key, value in metrics.items():
+            logger.info(f"  {key} = {value}")
+        if wandb.run is not None:
+            wandb.log(metrics)
