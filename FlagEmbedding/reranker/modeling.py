@@ -9,7 +9,6 @@ from .arguments import ModelArguments, DataArguments
 
 logger = logging.getLogger(__name__)
 
-
 class CrossEncoder(nn.Module):
     def __init__(self, hf_model: PreTrainedModel, model_args: ModelArguments, data_args: DataArguments,
                  train_args: TrainingArguments):
