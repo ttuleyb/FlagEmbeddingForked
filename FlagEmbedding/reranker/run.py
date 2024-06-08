@@ -9,12 +9,11 @@ from transformers import (
 )
 
 from .arguments import ModelArguments, DataArguments
-from .data import TrainDatasetForCE, GroupCollator
+from .data import TrainDatasetForCE, EvalDatasetForCE, GroupCollator
 from .modeling import CrossEncoder
 from .trainer import CETrainer
 
 logger = logging.getLogger(__name__)
-
 
 def main():
     parser = HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
@@ -58,17 +57,16 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
-        use_fast=False,
     )
+
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
         num_labels=num_labels,
+        finetuning_task="classification",
         cache_dir=model_args.cache_dir,
     )
-    _model_class = CrossEncoder
 
-    model = _model_class.from_pretrained(
-        model_args, data_args, training_args,
+    model = CrossEncoder.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
         config=config,
@@ -76,11 +74,13 @@ def main():
     )
 
     train_dataset = TrainDatasetForCE(data_args, tokenizer=tokenizer)
-    _trainer_class = CETrainer
-    trainer = _trainer_class(
+    eval_dataset = EvalDatasetForCE(data_args, tokenizer=tokenizer) if data_args.eval_data else None
+
+    trainer = CETrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
         data_collator=GroupCollator(tokenizer),
         tokenizer=tokenizer
     )
@@ -90,6 +90,10 @@ def main():
     trainer.train()
     trainer.save_model()
 
+    if training_args.do_eval and eval_dataset:
+        logger.info("*** Evaluate ***")
+        eval_result = trainer.evaluate(eval_dataset=eval_dataset)
+        logger.info(f"Eval results: {eval_result}")
 
 if __name__ == "__main__":
     main()

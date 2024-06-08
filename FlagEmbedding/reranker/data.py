@@ -63,6 +63,50 @@ class TrainDatasetForCE(Dataset):
         return batch_data
 
 
+class EvalDatasetForCE(Dataset):
+    def __init__(self, args: DataArguments, tokenizer: PreTrainedTokenizer):
+        if os.path.isdir(args.eval_data):
+            eval_datasets = []
+            for file in os.listdir(args.eval_data):
+                temp_dataset = datasets.load_dataset('json', data_files=os.path.join(args.eval_data, file), split='train')
+                eval_datasets.append(temp_dataset)
+            self.dataset = datasets.concatenate_datasets(eval_datasets)
+        else:
+            self.dataset = datasets.load_dataset('json', data_files=args.eval_data, split='train')
+
+        self.tokenizer = tokenizer
+        self.args = args
+        self.total_len = len(self.dataset)
+
+    def create_one_example(self, qry_encoding: str, doc_encoding: str):
+        item = self.tokenizer.encode_plus(
+            qry_encoding,
+            doc_encoding,
+            truncation=True,
+            max_length=self.args.max_len,
+            padding=False,
+        )
+        return item
+
+    def __len__(self):
+        return self.total_len
+
+    def __getitem__(self, item) -> List[BatchEncoding]:
+        query = self.dataset[item]['query']
+        pos = random.choice(self.dataset[item]['pos'])
+        if len(self.dataset[item]['neg']) < self.args.eval_group_size - 1:
+            num = math.ceil((self.args.eval_group_size - 1) / len(self.dataset[item]['neg']))
+            negs = random.sample(self.dataset[item]['neg'] * num, self.args.eval_group_size - 1)
+        else:
+            negs = random.sample(self.dataset[item]['neg'], self.args.eval_group_size - 1)
+
+        batch_data = []
+        batch_data.append(self.create_one_example(query, pos))
+        for neg in negs:
+            batch_data.append(self.create_one_example(query, neg))
+
+        return batch_data
+
 
 @dataclass
 class GroupCollator(DataCollatorWithPadding):
